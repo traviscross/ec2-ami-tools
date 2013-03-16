@@ -106,6 +106,7 @@ License: Amazon Software License
 
 Files: lib/ec2/oem/*
 Copyright: 2013 Yukihiro Matsumoto <matz@netlab.co.jp>.
+License: GPL-2
  Ruby is copyrighted free software by Yukihiro Matsumoto <matz@netlab.co.jp>.
  You can redistribute it and/or modify it under either the terms of the GPL
  (see COPYING.txt file), or the conditions below:
