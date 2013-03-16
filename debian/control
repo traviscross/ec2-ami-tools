@@ -1,0 +1,13 @@
+Source: ec2-ami-tools
+Section: admin
+Priority: extra
+Maintainer: Travis Cross <tc@traviscross.com>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.3
+Homepage: http://aws.amazon.com/developertools
+
+Package: ec2-ami-tools
+Architecture: all
+Depends: ${misc:Depends}, curl, openssl, rsync, ruby (>= 1.8.2)
+Description: EC2 AMI Tools
+ These tools are provided by Amazon for building and managing AMIs.

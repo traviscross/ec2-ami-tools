@@ -1,0 +1,3 @@
+out/bin/* /usr/bin/
+out/etc/* /etc/
+out/lib/* /usr/lib/
