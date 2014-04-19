@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -11,7 +11,7 @@
 module EC2
   module Platform
     module Linux
-      LOCAL_FS_TYPES = ['ext2', 'ext3', 'xfs', 'jfs', 'reiserfs', 'tmpfs']
+      LOCAL_FS_TYPES = ['ext2', 'ext3', 'ext4', 'xfs', 'jfs', 'reiserfs', 'tmpfs']
       class Mtab
         class Entry
           REGEX = /^(\S+)\s+(\S+)\s+(\S+)\s+(\S+).*$/

@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -128,7 +128,7 @@ class ManifestV20071010
     end
     builder['/manifest/machine_configuration/kernel_id'] = kernel_id
     builder['/manifest/machine_configuration/ramdisk_id'] = ramdisk_id
-    (product_codes || []).each_with_index do |product_code, index|
+    Array(product_codes).each_with_index do |product_code, index|
       builder["/manifest/machine_configuration/product_codes/product_code[#{index}]"] = product_code
     end
 

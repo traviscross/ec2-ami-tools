@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -17,6 +17,7 @@ module AwsRegion
     'eu-west-1',
     'us-east-1',
     'us-gov-west-1',
+    'cn-north-1',
     'us-west-1',
     'us-west-2',
     'ap-southeast-1',
@@ -26,9 +27,10 @@ module AwsRegion
   ]
 
   S3_LOCATIONS = [
-    'EU',
+    'EU', 'eu-west-1',
     'US',
     'us-gov-west-1',
+    'cn-north-1',
     'us-west-1',
     'us-west-2',
     'ap-southeast-1',
@@ -37,11 +39,25 @@ module AwsRegion
     'sa-east-1',
   ]
 
-  GOV_REGIONS = [
-    'us-gov-west-1',
-  ]
-
   module_function
+
+  def determine_region_from_host host
+    # http://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
+    if host == "s3.amazonaws.com" || host == "s3-external-1.amazonaws.com"
+      "us-east-1"
+    elsif
+      domains = host.split(".")
+      # handle s3-$REGION.amazonaws.something
+      if domains.length >= 3 && domains[0].start_with?("s3-")
+        domains[0].sub("s3-", "")
+      # handle s3.$REGION.amazonaws.something, this is specific to the cn-north-1 endpoint
+      elsif domains.length >= 3 && domains[0] == "s3"
+        domains[1]
+      else
+        "us-east-1"
+      end
+    end
+  end
 
   def guess_region_from_s3_bucket(location)
     if (location == "EU")
@@ -61,10 +77,6 @@ module AwsRegion
     else
       return region
     end
-  end
-
-  def is_gov(region)
-    return GOV_REGIONS.include?(region)
   end
 
   def regions

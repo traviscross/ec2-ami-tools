@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -19,13 +19,18 @@ require 'tmpdir'
 require 'tempfile'
 require 'fileutils'
 
+require 'ec2/common/constants'
 require 'ec2/common/curl'
+require 'ec2/common/signature'
+require 'ec2/common/headers'
 require 'ec2/amitools/crypto'
 
 module EC2
   module Common
     module HTTP
-    
+      DEFAULT_SIGV = EC2::Common::SIGV4
+      DEFAULT_REGION = 'us-east-1'
+
       class Response < EC2::Common::Curl::Response
         attr_reader :body
         def initialize(code, type, body=nil)
@@ -33,94 +38,6 @@ module EC2
           @body = body
         end
       end
-      
-      class Headers
-        MANDATORY = ['content-md5', 'content-type', 'date'] # Order matters.
-        X_AMZ_PREFIX = 'x-amz'
-        X_AMZ_SECURITY_TOKEN = 'x-amz-security-token'
-        
-        def initialize(verb)
-          raise ArgumentError.new('invalid verb') if verb.to_s.empty?
-          @headers = {}
-          @verb = verb
-        end
-        
-        
-        #---------------------------------------------------------------------
-        # Add a Header key-value pair.        
-        def add(name, value)
-          raise ArgumentError.new("name '#{name.inspect}' must be a String") unless name.is_a? String
-          raise ArgumentError.new("value '#{value.inspect}' (#{name}) must be a String") unless value.is_a? String
-          @headers[name.downcase.strip] = value.strip
-        end
-        
-        
-        #-----------------------------------------------------------------------
-        # Sign the headers using HMAC SHA1.
-        def sign(creds, aws_secret_access_key, url, bucket)
-          aws_access_key_id = nil
-          delegation_token = nil
-          if (creds.is_a?(Hash))
-              aws_access_key_id = creds['aws_access_key_id']
-              aws_secret_access_key = creds['aws_secret_access_key']
-              delegation_token = creds['aws_delegation_token']
-          end
-      
-          @headers['date'] = Time.now.httpdate          # add HTTP Date header
-          
-          # Build the data to sign.
-          data = @verb + "\n"
-
-          # Deal with mandatory headers first:
-          MANDATORY.each do |name|
-            data += @headers.fetch(name, "") + "\n"
-          end
-          
-          unless delegation_token.nil?
-              @headers[X_AMZ_SECURITY_TOKEN] = delegation_token
-          end
-          # Add mandatory headers and those that start with the x-amz prefix.
-          @headers.sort.each do |name, value|
-            # Headers that start with x-amz must have both their name and value 
-            # added.
-            if name =~ /^#{X_AMZ_PREFIX}/
-              data += name + ":" + value +"\n"
-            end
-          end
-          
-          
-          # Ignore everything in the URL after the question mark unless, by the
-          # S3 protocol, it signifies an acl, torrent, logging or location parameter
-          unless bucket.nil? or bucket.size == 0
-            data << "/#{bucket}"
-          end
-          data << URI.parse(url).path
-          ['acl', 'logging', 'torrent', 'location'].each do |item|
-            regex = Regexp.new("[&?]#{item}($|&|=)")
-            data << '?' + item if regex.match(url)
-          end
-          
-          # Sign headers and then put signature back into headers.
-          signature = Base64.encode64(Crypto::hmac_sha1(aws_secret_access_key, data))
-          signature.chomp!
-          @headers['Authorization'] = "AWS #{aws_access_key_id}:#{signature}"
-        end
-        
-        
-        #-----------------------------------------------------------------------
-        # Return the headers as a map from header name to header value.
-        def get
-          return @headers.clone
-        end
-        
-        
-        #-----------------------------------------------------------------------
-        # Return the headers as curl arguments of the form "-H name:value".
-        def curl_arguments
-          @headers.map { | name, value | "-H \"#{name}:#{value}\""}.join(' ')
-        end
-      end
-    
     
       #-----------------------------------------------------------------------      
       # Errors.
@@ -208,18 +125,14 @@ module EC2
       
       #-----------------------------------------------------------------------      
       # Delete the file at the specified url.
-      def HTTP::delete(url, bucket, options={}, user=nil, pass=nil, debug=false)
+      def HTTP::delete(url, bucket, options={}, user=nil, pass=nil, debug=false, sigv=DEFAULT_SIGV, region=DEFAULT_REGION)
         raise ArgumentError.new('Bad options in HTTP::delete') unless options.is_a? Hash
         begin
           output = Tempfile.new('ec2-delete-response')
           output.close
+          
           arguments = ['-X DELETE']
-          
-          headers = EC2::Common::HTTP::Headers.new('DELETE')
-          options.each do |name, value| headers.add(name, value) end
-          headers.sign(user, pass, url, bucket) if user and pass
-          arguments << headers.curl_arguments
-          
+          arguments << get_arguments(url, bucket, 'DELETE', options, user, pass, sigv, region)
           arguments << '-o ' + output.path
           
           response = HTTP::invoke(url, arguments, output.path, debug)
@@ -235,7 +148,7 @@ module EC2
       # Put the file at the specified path to the specified url. The content of
       # the options hash will be passed as HTTP headers. If the username and
       # password options are specified, then the headers will be signed.
-      def HTTP::put(url, bucket, path, options={}, user=nil, pass=nil, debug=false)
+      def HTTP::put(url, bucket, path, options={}, user=nil, pass=nil, debug=false, sigv=DEFAULT_SIGV, region=DEFAULT_REGION)
         path ||= "/dev/null"
         raise Error::PathInvalid.new(path) unless path and File::exist?(path)
         raise ArgumentError.new('Bad options in HTTP::put') unless options.is_a? Hash
@@ -243,15 +156,9 @@ module EC2
         begin
           output = Tempfile.new('ec2-put-response')
           output.close
-          arguments = []
-          
-          headers = EC2::Common::HTTP::Headers.new('PUT')
-          options.each do |name, value| headers.add(name, value) end
-          headers.sign(user, pass, url, bucket) if user and pass
-          arguments << headers.curl_arguments
 
+          arguments = [get_arguments(url, bucket, 'PUT', options, user, pass, sigv, region, open(path))]
           arguments << '-T ' + path
-
           arguments << '-o ' + output.path
 
           response = HTTP::invoke(url, arguments, output.path, debug)
@@ -263,26 +170,55 @@ module EC2
       end
   
       #-----------------------------------------------------------------------      
-      # Put the file at the specified path to the specified url. The content of
-      # the options hash will be passed as HTTP headers. If the username and
+      # Create a bucket using the specified url and constraints (either a file 
+      # with location string, or the string itself). The content of the 
+      # options hash will be passed as HTTP headers. If the username and 
       # password options are specified, then the headers will be signed.
-      def HTTP::putdir(url, bucket, path, options={}, user=nil, pass=nil, debug=false)
+      def HTTP::putdir(url, bucket, constraint, options={}, user=nil, pass=nil, debug=false, sigv=DEFAULT_SIGV, region=DEFAULT_REGION)
+        if constraint and File::exists?(constraint)
+          putdir_file(url, bucket, constraint, options, user, pass, debug)
+        else
+          putdir_binary_data(url, bucket, constraint, options, user, pass, debug, sigv, region)
+        end
+      end
+
+      def HTTP::putdir_file(url, bucket, path, options={}, user=nil, pass=nil, debug=false)
         raise Error::PathInvalid.new(path) unless path and File::exist?(path)
-        raise ArgumentError.new('Bad options in HTTP::putdir') unless options.is_a? Hash
-        
+        raise ArgumentError.new('Bad options in HTTP::putdir_file') unless options.is_a? Hash
+
         begin
           output = Tempfile.new('ec2-put-response')
           output.close
           arguments = []
-          
-          headers = EC2::Common::HTTP::Headers.new('PUT')
+
+          headers = EC2::Common::Headers.new('PUT')
           options.each do |name, value| headers.add(name, value) end
           headers.sign(user, pass, url, bucket) if user and pass
-          arguments << headers.curl_arguments
           
+          arguments << headers.get.map { |name, value| "-H \"#{name}:#{value}\""}.join(' ')
           arguments << '-T - '
           arguments << '-o ' + output.path
           arguments << " < #{path}"
+
+          response = HTTP::invoke(url, arguments, output.path, debug)
+          return EC2::Common::HTTP::Response.new(response.code, response.type)
+        ensure
+          output.close(true)
+          GC.start
+        end
+      end
+
+      def HTTP::putdir_binary_data(url, bucket, binary_data, options={}, user=nil, pass=nil, debug=false, sigv=DEFAULT_SIGV, region=DEFAULT_REGION)
+        raise ArgumentError.new('Bad options in HTTP::putdir_binary_data') unless options.is_a? Hash
+        
+        begin
+          output = Tempfile.new('ec2-put-response')
+          output.close
+          
+          arguments = ["-X PUT"]
+          arguments << "--data-binary \"#{binary_data}\""
+          arguments << get_arguments(url, bucket, 'PUT', options, user, pass, sigv, region, binary_data)
+          arguments << '-o ' + output.path
 
           response = HTTP::invoke(url, arguments, output.path, debug)
           return EC2::Common::HTTP::Response.new(response.code, response.type)          
@@ -300,9 +236,8 @@ module EC2
       # expectations. If no path is specified, and the response is a 200 OK, the
       # content of the response will be returned as a String
       def HTTP::get(url, bucket, path=nil, options={}, user=nil, pass=nil, 
-                    size=nil, digest=nil, debug=false)
+                    size=nil, digest=nil, debug=false, sigv=DEFAULT_SIGV, region=DEFAULT_REGION)
         raise ArgumentError.new('Bad options in HTTP::get') unless options.is_a? Hash
-        arguments = []
         buffer = nil
         if path.nil?
           buffer = Tempfile.new('ec2-get-response')
@@ -313,11 +248,7 @@ module EC2
           FileUtils.mkdir_p(directory) unless File.exist?(directory)
         end
        
-        headers = EC2::Common::HTTP::Headers.new('GET')
-        options.each do |name, value| headers.add(name, value) end
-        headers.sign(user, pass, url, bucket) if user and pass
-        arguments << headers.curl_arguments
-        
+        arguments = [get_arguments(url, bucket, 'GET', options, user, pass, sigv, region)]
         arguments << "--max-filesize #{size}" if size
         arguments << '-o ' + path
         
@@ -330,7 +261,7 @@ module EC2
               obtained = IO.popen("openssl sha1 #{path}") { |io| io.readline.split(/\s+/).last.strip }
               unless digest == obtained                
                 File.delete(path) if File.exists?(path) and not buffer.is_a? Tempfile
-                raise Error::BadDigest.new(path, expected, obtained)
+                raise Error::BadDigest.new(path, digest, obtained)
               end
             end
             if buffer.is_a? Tempfile
@@ -356,18 +287,14 @@ module EC2
   
       #-----------------------------------------------------------------------      
       # Get the HEAD response for the specified url.
-      def HTTP::head(url, bucket, options={}, user=nil, pass=nil, debug=false)
+      def HTTP::head(url, bucket, options={}, user=nil, pass=nil, debug=false, sigv=DEFAULT_SIGV, region=DEFAULT_REGION)
         raise ArgumentError.new('Bad options in HTTP::head') unless options.is_a? Hash
         begin
           output = Tempfile.new('ec2-head-response')
           output.close
+          
           arguments = ['--head']
-          
-          headers = EC2::Common::HTTP::Headers.new('HEAD')
-          options.each do |name, value| headers.add(name, value) end
-          headers.sign(user, pass, url, bucket) if user and pass
-          arguments << headers.curl_arguments
-          
+          arguments << get_arguments(url, bucket, 'HEAD', options, user, pass, sigv, region)
           arguments << '-o ' + output.path
           
           response = HTTP::invoke(url, arguments, output.path, debug)
@@ -379,6 +306,27 @@ module EC2
           output.close(true)
           GC.start
         end
+      end
+
+      private
+      def HTTP::get_arguments(url, bucket, http_method, options, user, pass, sigv, region, file_path=nil)
+        headers = if user and pass
+          if sigv == EC2::Common::SIGV2
+            EC2::Common::Signature::curl_args_sigv2(url, bucket,
+                                                    http_method,
+                                                    options,
+                                                    user, pass)
+          elsif sigv == EC2::Common::SIGV4
+            EC2::Common::Signature::curl_args_sigv4(url, region, bucket,
+                                                    http_method,
+                                                    options,
+                                                    user, pass,
+                                                    file_path)
+          end
+        else
+          options
+        end
+        headers.map { |name, value| "-H \"#{name}:#{value}\""}.join(' ')
       end
     end
   end

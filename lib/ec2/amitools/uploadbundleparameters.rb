@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -73,8 +73,11 @@ class UploadBundleParameters < S3ToolParameters
     
     on('--location LOCATION', LOCATION_DESCRIPTION) do |location|
       assert_option_in(location, AwsRegion.s3_locations, '--location')
-      @location = location
-      @location = :unconstrained if @location == "US"
+      @location = case location
+        when "eu-west-1" then "EU"
+        when "US" then :unconstrained
+        else location
+      end
     end
   end
 
@@ -91,6 +94,15 @@ class UploadBundleParameters < S3ToolParameters
     super()
     @acl ||= 'aws-exec-read'
     @directory ||= File::dirname(@manifest)
+    # If no location is given, set it equal to the region.
+    # For legacy reasons if no location is given the location is set to US
+    # If the region is us-east-1, we must not set the location. By not setting
+    # the location S3 will default to the correct US location (which can't be
+    # specified).
+    if @region && !@location && !(@region == 'us-east-1')
+      STDERR.puts "No location specified, setting location to conform with region: #{@region}"
+      @location = @region
+    end
   end
 
 end

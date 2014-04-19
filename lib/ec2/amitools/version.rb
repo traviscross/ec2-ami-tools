@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -14,11 +14,11 @@ module EC2Version
   MANIFEST_CLASS = ManifestV20071010
   MANIFEST_VERSION = MANIFEST_CLASS.version
   PKG_NAME = 'ec2-ami-tools'
-  PKG_VERSION = '1.4'
-  PKG_RELEASE = '0.9'
+  PKG_VERSION = '1.5'
+  PKG_RELEASE = '2'
 
   COPYRIGHT_NOTICE = <<CNOTICE
-Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
+Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights Reserved.
 Licensed under the Amazon Software License (the "License").  You may not use
 this file except in compliance with the License. A copy of the License is
 located at http://aws.amazon.com/asl or in the "license" file accompanying this

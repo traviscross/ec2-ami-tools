@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -26,6 +26,7 @@ module Bundle
       self.object_id == o.object_id
     end
   end
+
   
   CHUNK_SIZE = 10 * 1024 * 1024 # 10 MB in bytes.
 
@@ -88,7 +89,7 @@ module Bundle
       pipeline.concat([
         ['tar', "#{openssl} sha1 < #{digest_pipe} & " + tar.expand],
         ['tee', "tee #{digest_pipe}"],
-        ['gzip', 'gzip'],
+        ['gzip', 'gzip -9'],
         ['encrypt', "#{openssl} enc -e -aes-128-cbc -K #{key} -iv #{iv} > #{bundled_file_path}"]
         ])
       digest = nil
@@ -118,7 +119,7 @@ module Bundle
       ec2_encrypted_key = ec2_public_key.public_encrypt( key, padding )
       user_encrypted_iv = user_public_key.public_encrypt( iv, padding )
       ec2_encrypted_iv = ec2_public_key.public_encrypt( iv, padding )
-      
+
       # Digest parts.
       part_digest_list = Bundle::digest_parts( parts, destination )
       
@@ -166,6 +167,7 @@ module Bundle
       
       # Write out the manifest file.
       File.open( manifest_file, 'w' ) { |f| f.write( manifest.to_s ) }
+      $stdout.puts 'Bundle manifest is %s' % manifest_file
     ensure
       # Clean up.
       if bundled_file_path and File.exist?( bundled_file_path )

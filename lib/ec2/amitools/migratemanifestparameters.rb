@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -109,6 +109,10 @@ class MigrateManifestParameters < ParametersBase
   #----------------------------------------------------------------------------#
 
   def set_defaults()
-    @ec2_cert_path ||= AwsRegion.is_gov(@region) ? Bundling::EC2_X509_GOV_CERT : Bundling::EC2_X509_CERT
+    @ec2_cert_path ||= case
+      when (@region=="us-gov-west-1") then Bundling::EC2_X509_GOV_CERT
+      when (@region=="cn-north-1") then Bundling::EC2_X509_CN_NORTH_1_CERT
+      else Bundling::EC2_X509_CERT
+    end
   end
 end

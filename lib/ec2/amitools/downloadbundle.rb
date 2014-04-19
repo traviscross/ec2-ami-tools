@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -88,11 +88,11 @@ class BundleDownloader < AMITool
 
   #----------------------------------------------------------------------------#
 
-  def make_s3_connection(s3_url, user, pass, bucket)
+  def make_s3_connection(s3_url, user, pass, bucket, sigv, region)
     s3_uri = URI.parse(s3_url)
     s3_url = uri2string(s3_uri)
     v2_bucket = EC2::Common::S3Support::bucket_name_s3_v2_safe?(bucket)
-    EC2::Common::S3Support.new(s3_url, user, pass, (v2_bucket ? nil : :path), @debug)
+    EC2::Common::S3Support.new(s3_url, user, pass, (v2_bucket ? nil : :path), @debug, sigv, region)
   end
 
   #----------------------------------------------------------------------------#
@@ -106,9 +106,11 @@ class BundleDownloader < AMITool
                       directory,
                       manifest,
                       privatekey,
-                      retry_stuff)
+                      retry_stuff,
+                      sigv,
+                      region)
     begin
-      s3_conn = make_s3_connection(url, user, pass, bucket)
+      s3_conn = make_s3_connection(url, user, pass, bucket, sigv, region)
       # Download and decrypt manifest.
       manifest_path = File.join(directory, manifest)
       manifest_xml = download_manifest(s3_conn, bucket, keyprefix+manifest, manifest_path, privatekey, retry_stuff)
@@ -145,7 +147,9 @@ class BundleDownloader < AMITool
                     p.directory,
                     p.manifest,
                     p.privatekey,
-                    p.retry)
+                    p.retry,
+                    p.sigv,
+                    p.region)
   end
 
 end

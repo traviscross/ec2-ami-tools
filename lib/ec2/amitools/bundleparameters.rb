@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -18,7 +18,7 @@ class BundleParameters < ParametersBase
   include EC2::Platform::Current::Constants
 
   SUPPORTED_ARCHITECTURES = ['i386', 'x86_64']
-  
+
   USER_DESCRIPTION = "The user's EC2 user ID (Note: AWS account number, NOT Access Key ID)."
   HELP_DESCRIPTION = "Display this help message and exit."
   MANUAL_DESCRIPTION = "Display the user manual and exit."
@@ -45,7 +45,7 @@ class BundleParameters < ParametersBase
                 :batch_mode,
                 :size_checks,
                 :product_codes
-  
+
   PROMPT_TIMEOUT = 30
 
   #----------------------------------------------------------------------------#
@@ -55,12 +55,12 @@ class BundleParameters < ParametersBase
       assert_file_exists(path, '--cert')
       @user_cert_path = path
     end
-    
+
     on('-k', '--privatekey PATH', String, USER_PK_PATH_DESCRIPTION) do |path|
       assert_file_exists(path, '--privatekey')
       @user_pk_path = path
     end
-    
+
     on('-u', '--user USER', String, USER_ACCOUNT_DESCRIPTION) do |user|
       # Remove hyphens from the Account ID as presented in AWS portal.
       @user = user.gsub("-", "")
@@ -71,7 +71,7 @@ class BundleParameters < ParametersBase
       end
     end
   end
-  
+
   #----------------------------------------------------------------------------#
 
   def optional_params()
@@ -79,16 +79,16 @@ class BundleParameters < ParametersBase
       assert_directory_exists(path, '--destination')
       @destination = path
     end
-    
+
     on('--ec2cert PATH', String, *BundleParameters::EC2_CERT_PATH_DESCRIPTION) do |path|
       assert_file_exists(path, '--ec2cert')
       @ec2_cert_path = path
     end
-    
+
     on('-r', '--arch ARCHITECTURE', String, ARCHITECTURE_DESCRIPTION) do |arch|
       @arch = arch
     end
-    
+
     on('--productcodes PRODUCT_CODES', String, *PRODUCT_CODES_DESCRIPTION) do |pc|
       @product_codes = pc
     end
@@ -101,9 +101,11 @@ class BundleParameters < ParametersBase
   #----------------------------------------------------------------------------#
 
   def validate_params()
-    raise MissingMandatory.new('--cert') unless @user_cert_path
-    raise MissingMandatory.new('--privatekey') unless @user_pk_path
-    raise MissingMandatory.new('--user') unless @user
+    unless @clone_only
+      raise MissingMandatory.new('--cert') unless @user_cert_path
+      raise MissingMandatory.new('--privatekey') unless @user_pk_path
+      raise MissingMandatory.new('--user') unless @user
+    end
   end
 
   #----------------------------------------------------------------------------#
@@ -114,5 +116,5 @@ class BundleParameters < ParametersBase
     @exclude ||= []
     @size_checks = true
   end
-  
+
 end

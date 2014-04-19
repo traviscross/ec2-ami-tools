@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -13,7 +13,7 @@ require 'digest/sha1'
 require 'openssl'
 require 'stringio'
 
-### 
+###
 # Cryptographic utilities module.
 #
 module Crypto
@@ -49,7 +49,7 @@ module Crypto
       return Crypto.decryptasym_v2( cipher_text, keyfilename )
     end
     raise ArgumentError.new("invalid encryption scheme versionb: #{version}") unless version == 1
-    
+
     # Decrypt and extract encrypted symmetric key and initialization vector.
     symkey_cryptogram_len = cipher_text.slice(1, 2).unpack('C')[0]
     symkey_cryptogram = privkey.private_decrypt(
@@ -57,7 +57,7 @@ module Crypto
       PADDING)
     symkey = symkey_cryptogram.slice(0, 16)
     iv = symkey_cryptogram.slice(16, 16)
-    
+
     # Decrypt data with the symmetric key.
     cryptogram = cipher_text.slice(2 + symkey_cryptogram_len..cipher_text.size)
     decryptsym(cryptogram, symkey, iv)
@@ -83,17 +83,17 @@ module Crypto
     # Get version.
     version = cipher_text[0]
     raise ArgumentError.new("invalid encryption scheme versionb: #{version}") unless version == VERSION2
-    
+
     # Decrypt and extract encrypted symmetric key and initialization vector.
     hi_byte, lo_byte = cipher_text.slice(1, 3).unpack('CC')
-    symkey_cryptogram_len = ( hi_byte << 8 ) | lo_byte        
+    symkey_cryptogram_len = ( hi_byte << 8 ) | lo_byte
     symkey_cryptogram = privkey.private_decrypt(
       cipher_text.slice(3, symkey_cryptogram_len),
       PADDING)
     
     symkey = symkey_cryptogram.slice(0, 16)
     iv = symkey_cryptogram.slice(16, 16)
-        
+
     # Decrypt data with the symmetric key.
     cryptogram = cipher_text.slice( ( 3 + symkey_cryptogram_len )..cipher_text.size)
     decryptsym(cryptogram, symkey, iv)
@@ -115,20 +115,20 @@ module Crypto
   def Crypto.encryptasym(data, pubkey)
     raise ArgumentError.new('data') unless data
     raise ArgumentError.new('pubkey') unless pubkey
-    
+
     symkey = gensymkey
     iv = geniv
     symkey_cryptogram = pubkey.public_encrypt( symkey + iv, PADDING )
 
     data_cryptogram = encryptsym(data, symkey, iv)
-        
+
     hi_byte, lo_byte = Format.int2int16(symkey_cryptogram.size)
-    
+
     Format::int2byte(VERSION2) + hi_byte + lo_byte + symkey_cryptogram + data_cryptogram
   end
 
   #----------------------------------------------------------------------------#
-  
+
   ##
   # Verify the authenticity of the data from the IO stream or string ((|data|))
   # using the signature ((|sig|)) and the public key ((|pubkey|)).
@@ -139,10 +139,10 @@ module Crypto
     raise ArgumentError.new("Invalid parameter data") if data.nil?
     raise ArgumentError.new("Invalid parameter sig") if sig.nil? or sig.length==0
     raise ArgumentError.new("Invalid parameter pubkey") if pubkey.nil?
-         
+
     # Create IO stream if necessary.
     io = (data.instance_of?(StringIO) ? data : StringIO.new(data))
-    
+
     sha = OpenSSL::Digest::SHA1.new
     res = false
     while not (io.eof?)
@@ -152,7 +152,7 @@ module Crypto
   end
 
   #----------------------------------------------------------------------------#
-  
+
   ##
   # Decrypt the specified cipher text file to create the specified plain text
   # file.
@@ -165,7 +165,7 @@ module Crypto
   # ((|key|)) The 128 bit (16 byte) symmetric key.
   # ((|iv|)) The 128 bit (16 byte) initialization vector.
   #
-  def Crypto.decryptfile(src, dst, key, iv)    
+  def Crypto.decryptfile(src, dst, key, iv)
     raise ArgumentError.new("invalid file name: #{src}") unless FileTest.exists?(src)
     raise ArgumentError.new("invalid key") unless key and key.size == 16
     raise ArgumentError.new("invalid iv") unless iv and iv.size == 16
@@ -184,7 +184,7 @@ module Crypto
     raise ArgumentError.new("plaintext must be a String") unless plaintext.is_a? String
     raise ArgumentError.new("invalid key") unless key.is_a? String and key.size == 16
     raise ArgumentError.new("invalid iv") unless iv.is_a? String and iv.size == 16
-    
+
     cipher = OpenSSL::Cipher::Cipher.new( 'AES-128-CBC' )
     cipher.decrypt( key, iv )
     # NOTE: If the key and iv aren't set this doesn't work correctly.
@@ -207,22 +207,22 @@ module Crypto
     end
     alg.digest
   end
-  
+
   #----------------------------------------------------------------------------#
-  
+
   # Return the HMAC SHA1 of _data_ using _key_.
   def Crypto.hmac_sha1( key, data )
     raise ParameterError.new( "key must be a String" ) unless key.is_a? String
     raise ParameterError.new( "data must be a String" ) unless data.is_a? String
-    
+
     md = OpenSSL::Digest::SHA1.new
     hmac = OpenSSL::HMAC.new( key, md)
     hmac.update( data )
     return hmac.digest
   end
-  
+
   #----------------------------------------------------------------------------#
-  
+
   ##
   # Decrypt the specified cipher text file to create the specified plain text
   # file.
@@ -253,7 +253,7 @@ module Crypto
     raise ArgumentError.new("plaintext must be a String") unless plaintext.kind_of? String
     raise ArgumentError.new("invalid key") unless ( key.is_a? String and key.size == 16 )
     raise ArgumentError.new("invalid iv") unless ( iv.is_a? String and iv.size == 16 )
-    
+
     cipher = OpenSSL::Cipher::Cipher.new( 'AES-128-CBC' )
     cipher.encrypt( key, iv )
     # NOTE: If the key and iv aren't set this doesn't work correctly.
@@ -274,7 +274,7 @@ module Crypto
 
   #----------------------------------------------------------------------------#
 
-  ##  
+  ##
   # Generate a key suitable for use with a symmetric cipher.
   #
   def Crypto.gensymkey
@@ -284,7 +284,7 @@ module Crypto
   #----------------------------------------------------------------------------#
 
   ##
-  # Return the public key from the X509 certificate file ((|filename|)). 
+  # Return the public key from the X509 certificate file ((|filename|)).
   #
   def Crypto.certfile2pubkey(filename)
     begin
@@ -295,9 +295,9 @@ module Crypto
       raise "error reading certificate file #{filename}: #{e.message}"
     end
   end
-  
+
   #----------------------------------------------------------------------------#
-  
+
   def Crypto.cert2pubkey(data)
     begin
       return OpenSSL::X509::Certificate.new(data).public_key
@@ -305,7 +305,7 @@ module Crypto
       raise "error reading certificate: #{e.message}"
     end
   end
-  
+
   #----------------------------------------------------------------------------#
 
   ##
@@ -337,7 +337,7 @@ module Crypto
     raise ArgumentError.new('cert_filename is nil')  if cert_filename.nil?
     raise ArgumentError.new("invalid cert file name: #{cert_filename}") unless FileTest.exists?(cert_filename)
     fingerprint = nil
-    
+
     IO.popen("openssl x509 -in #{cert_filename} -noout -sha1 -fingerprint") do |io|
       out = io.read
       md = SHA1_FINGERPRINT_REGEX.match(out)
@@ -345,14 +345,14 @@ module Crypto
         fingerprint = md[1]
       end
     end
-  
+
     raise ArgumentError.new("could not generate fingerprint for #{cert_filename}")  if fingerprint.nil?
-    
-    return fingerprint    
+
+    return fingerprint
   end
-  
+
   #------------------------------------------------------------------------------#
-  
+
   def Crypto.loadprivkey filename
     begin
       OpenSSL::PKey::RSA.new( File.open( filename,'r' ) )
@@ -360,9 +360,9 @@ module Crypto
       raise "error reading private key from file #{filename}: #{e.message}"
     end
   end
-  
+
   #----------------------------------------------------------------------------#
-  
+
   ##
   # XOR the byte string ((|a|)) with the byte string ((|b|)). The operans must
   # be of the same length.
@@ -373,7 +373,7 @@ module Crypto
     a.size.times do |i|
       xored << (a[i] ^ b[i])
     end
-    
+
     xored
   end
 end
