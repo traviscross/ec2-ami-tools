@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -136,7 +136,7 @@ class BundleUploader < AMITool
       # The bucket exists and we don't care where it is.
       return true
     end
-    if location != bucket_location
+    unless [bucket_location, AwsRegion.guess_region_from_s3_bucket(bucket_location)].include?(location)
       # The bucket isn't where we want it. This is a problem.
       raise BucketLocationError.new(bucket, location, bucket_location)
     end
@@ -250,8 +250,8 @@ class BundleUploader < AMITool
 
   #------------------------------------------------------------------------------#
 
-  def get_s3_conn(s3_url, user, pass, method)
-    EC2::Common::S3Support.new(s3_url, user, pass, method, @debug)
+  def get_s3_conn(s3_url, user, pass, method, sigv, region=nil)
+    EC2::Common::S3Support.new(s3_url, user, pass, method, @debug, sigv, region)
   end
 
   #------------------------------------------------------------------------------#
@@ -270,13 +270,15 @@ class BundleUploader < AMITool
                     part,
                     directory,
                     acl,
-                    skipmanifest)
+                    skipmanifest,
+                    sigv,
+                    region)
     begin
       # Get the S3 URL.
       s3_uri = URI.parse(url)
       s3_url = uri2string(s3_uri)
       v2_bucket = check_bucket_name(bucket) and check_govcloud_override(s3_url)
-      s3_conn = get_s3_conn(s3_url, user, pass, (v2_bucket ? nil : :path))
+      s3_conn = get_s3_conn(s3_url, user, pass, (v2_bucket ? nil : :path), sigv, region)
 
       # Get current location and bucket location.
       bucket_location = get_bucket_location(s3_conn, bucket)
@@ -310,10 +312,11 @@ class BundleUploader < AMITool
         $stdout.puts "Uploading manifest ..."
         upload(s3_conn, bucket, keyprefix + File::basename(manifest_file), manifest_file, acl, retry_stuff)
         $stdout.puts "Uploaded manifest."
+        $stdout.puts 'Manifest uploaded to: %s/%s' % [bucket, keyprefix + File::basename(manifest_file)]
       else
         $stdout.puts "Skipping manifest."
       end
-      
+
       $stdout.puts 'Bundle upload completed.'
     rescue EC2::Common::HTTP::Error => e
       $stderr.puts e.backtrace if @debug
@@ -345,7 +348,9 @@ class BundleUploader < AMITool
                   p.part,
                   p.directory,
                   p.acl,
-                  p.skipmanifest)
+                  p.skipmanifest,
+                  p.sigv,
+                  p.region)
   end
 
 end

@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -26,6 +26,7 @@ module EC2
     module Linux
       module Distribution
         include EC2::Platform::Base::Distribution
+        AMAZON    = 'Amazon Linux'
         REDHAT    = 'Red Hat Linux'
         GENTOO    = 'Gentoo'
         DEBIAN    = 'Debian'
@@ -37,19 +38,20 @@ module EC2
         CAOS      = 'Caos Linux'
         
         IDENTITIES= [
-          # file                    distro                    regex
-          ['/etc/caos-release',     Distribution::CAOS,       nil],
-          ['/etc/debian-release',   Distribution::DEBIAN,     nil],
-          ['/etc/debian_version',   Distribution::DEBIAN,     nil],
-          ['/etc/fedora-release',   Distribution::FEDORA,     nil],
-          ['/etc/gentoo-release',   Distribution::GENTOO,     nil],
-          ['/etc/redhat-release',   Distribution::REDHAT,     nil],
-          ['/etc/slackware-version',Distribution::SLACKWARE,  nil],
-          ['/etc/slackware-release',Distribution::SLACKWARE,  nil],
-          ['/etc/SuSE-release',     Distribution::SUSE,       nil],
-          ['/etc/ubuntu-release',   Distribution::UBUNTU,     nil],
-          ['/etc/ubuntu-version',   Distribution::UBUNTU,     nil],
-          ['/etc/mandrake-release', Distribution::MANDRAKE,   nil],
+          # file                     distro                    regex
+          ['/etc/system-release-cpe', Distribution::AMAZON, /amazon/],
+          ['/etc/caos-release',       Distribution::CAOS,        nil],
+          ['/etc/debian-release',     Distribution::DEBIAN,      nil],
+          ['/etc/debian_version',     Distribution::DEBIAN,      nil],
+          ['/etc/fedora-release',     Distribution::FEDORA,      nil],
+          ['/etc/gentoo-release',     Distribution::GENTOO,      nil],
+          ['/etc/redhat-release',     Distribution::REDHAT,      nil],
+          ['/etc/slackware-version',  Distribution::SLACKWARE,   nil],
+          ['/etc/slackware-release',  Distribution::SLACKWARE,   nil],
+          ['/etc/SuSE-release',       Distribution::SUSE,        nil],
+          ['/etc/ubuntu-release',     Distribution::UBUNTU,      nil],
+          ['/etc/ubuntu-version',     Distribution::UBUNTU,      nil],
+          ['/etc/mandrake-release',   Distribution::MANDRAKE,    nil],
         ]
       end
       

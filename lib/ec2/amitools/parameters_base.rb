@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -80,9 +80,21 @@ class ParametersBase < OptionParser
     end
   end
 
+  def assert_glob_expands(path, param)
+    if Dir::glob(path).empty?
+      raise InvalidValue.new(param, path, "File or directory does not exist.")
+    end
+  end
+
   def assert_file_exists(path, param)
     unless (File::exist?(path) and File::file?(path))
       raise InvalidValue.new(param, path, "File does not exist or is not a file.")
+    end
+  end
+
+  def assert_file_executable(path, param)
+    unless (File::executable?(path) and File::file?(path))
+      raise InvalidValue.new(param, path, "File not executable.")
     end
   end
 

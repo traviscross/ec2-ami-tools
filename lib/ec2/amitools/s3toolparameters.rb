@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -8,7 +8,9 @@
 # the License for the specific language governing permissions and
 # limitations under the License.
 
+require 'ec2/common/constants'
 require 'ec2/amitools/parameters_base'
+require 'ec2/amitools/region'
 
 #------------------------------------------------------------------------------#
 
@@ -19,14 +21,36 @@ class S3ToolParameters < ParametersBase
   MANIFEST_DESCRIPTION = "The path to the manifest file."
   DELEGATION_TOKEN_DESCRIPTION = "The delegation token pass along to the AWS request."
   URL_DESCRIPTION = "The S3 service URL. Defaults to https://s3.amazonaws.com."
+  REGION_DESCRIPTION = "The S3 region. Defaults to us-east-1."
+  SIGV2_DESCRIPTION = "Use old signature version 2 signing"
   PROFILE_PATH = '/latest/meta-data/iam/security-credentials/'
   PROFILE_HOST = '169.254.169.254'
+
+  REGION_MAP = {
+    'us-east-1' => 'https://s3.amazonaws.com',
+    'us-west-2' => 'https://s3-us-west-2.amazonaws.com',
+    'us-west-1' => 'https://s3-us-west-1.amazonaws.com',
+    'eu-west-1' => 'https://s3-eu-west-1.amazonaws.com',
+    'ap-southeast-1' => 'https://s3-ap-southeast-1.amazonaws.com',
+    'ap-southeast-2' => 'https://s3-ap-southeast-2.amazonaws.com',
+    'ap-northeast-1' => 'https://s3-ap-northeast-1.amazonaws.com',
+    'sa-east-1' => 'https://s3-sa-east-1.amazonaws.com',
+    'cn-north-1' => 'https://s3.cn-north-1.amazonaws.com.cn'
+  }
+
+  VALID_SIGV = ['2', '4']
+
+  DEFAULT_URL = 'https://s3.amazonaws.com'
+  DEFAULT_REGION = 'us-east-1'
+
 
   attr_accessor :bucket,
                 :keyprefix,
                 :user,      # This now contains all the creds.
                 :pass,      # pass is just kept for backwards compatibility.
-                :url
+                :url,
+                :region,
+                :sigv
 
   #------------------------------------------------------------------------------#
 
@@ -70,6 +94,14 @@ class S3ToolParameters < ParametersBase
     on('--url URL', String, URL_DESCRIPTION) do |url|
       @url = url
     end
+
+    on('--region REGION', REGION_DESCRIPTION) do |region|
+      @region = region
+    end
+
+    on('--sigv VERSION', SIGV2_DESCRIPTION) do |version_number|
+      @sigv = version_number
+    end
   end
 
   #----------------------------------------------------------------------------#
@@ -104,12 +136,46 @@ class S3ToolParameters < ParametersBase
     raise MissingMandatory.new('--access-key') unless @user && @user['aws_access_key_id']
     raise MissingMandatory.new('--secret-key') unless @pass
     raise MissingMandatory.new('--bucket') unless @container
+    if @sigv && !VALID_SIGV.include?(@sigv)
+      raise InvalidValue.new('--sigv', @sigv, "Please specify one of these values: #{VALID_SIGV.join(', ')}")
+    end
   end
 
   #----------------------------------------------------------------------------#
 
   def set_defaults()
-    @url ||= 'https://s3.amazonaws.com'
+    # We need three values to be set after this point:
+    #   region - which will specify the region of the endpoint used for sigv4
+    #   url - the url of the endpoint
+    #   location - the S3 bucket location
+    #
+    # We allow the user to override any of these values. The client only has
+    # to specify the region value.
+    if @region
+      @url ||= REGION_MAP[@region]
+    elsif @location
+      @region = case @location
+        when "EU" then "eu-west-1"
+        when "US", :unconstrained then "us-east-1"
+        else @location
+      end
+      @url ||= REGION_MAP[@region]
+    elsif @url
+      STDERR.puts "Specifying url has been deprecated, please use only --region"
+      uri = URI.parse(@url)
+      if @region.nil?
+        begin
+          @region = AwsRegion::determine_region_from_host uri.host
+          STDERR.puts "Region determined to be #{@region}"
+        rescue => e
+          STDERR.puts "No region specified and could not determine region from given url"
+          @region = nil
+        end
+      end
+    else
+      @url ||= DEFAULT_URL
+      @region ||= DEFAULT_REGION
+    end
+    @sigv ||= EC2::Common::SIGV4
   end
-
 end

@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -58,7 +58,7 @@ module Format
   def Format.hex2bin(hex)
     hex = '0' + hex unless (hex.size % 2) == 0
     data = StringIO.new
-    hex.to_a.pack('H*').each {|digit| data.write(digit)}
+    [[hex].pack('H*')].each {|digit| data.write(digit)}
     data.string
   end
 

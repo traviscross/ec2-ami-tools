@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -11,7 +11,9 @@
 # ---------------------------------------------------------------------------
 # Module that provides higher-level S3 functionality
 # ---------------------------------------------------------------------------
+require 'uri'
 require 'cgi'
+require 'ec2/common/constants'
 require 'ec2/common/http'
 
 module EC2
@@ -21,6 +23,9 @@ module EC2
       attr_accessor :s3_url,
                     :user,
                     :pass
+
+      DEFAULT_SIGV = EC2::Common::SIGV4
+      DEFAULT_REGION = 'us-east-1'
 
       # Return true if the bucket name is S3 safe.
       #
@@ -64,12 +69,14 @@ module EC2
            /(-\.)|(\.-)/ !~ bucket_name)
       end
 
-      def initialize(s3_url, user, pass, format=nil, debug=nil)
+      def initialize(s3_url, user, pass, format=nil, debug=nil, sigv=DEFAULT_SIGV, region=DEFAULT_REGION)
         @user = user
         @pass = pass
         @s3_url = fix_s3_url(s3_url)
         @format = format || :subdomain
         @debug = debug
+        @sigv = sigv
+        @region = region
       end
 
       def fix_s3_url(s3_url)
@@ -83,45 +90,49 @@ module EC2
       end
 
       def get_bucket_url(bucket)
+        # The returned variable should not end with '/', makes constructing the path for sigv4 easier
         case @format
         when :subdomain
-          protocol, base_domain = @s3_url.split("://")
-          return ["#{protocol}://#{bucket}.#{base_domain}", bucket]
+          uri = URI.parse(@s3_url)
+          return ["#{uri.scheme}://#{bucket}.#{uri.host}", bucket]
         when :path
-          return ["#{@s3_url}#{bucket}/", nil]
+          return ["#{@s3_url}#{bucket}", bucket]
         end
       end
 
       def get_acl(bucket, key, options={})
         begin
           url, bkt = get_bucket_url(bucket)
-          url << CGI::escape(key) + '?acl'
-          return EC2::Common::HTTP::get(url, bkt, nil, options, @user, @pass, nil, nil, @debug)
+          url << "/#{CGI::escape(key)}?acl"
+          http_fallback(url, @sigv) do |url, signature|
+            EC2::Common::HTTP::get(url, bkt, nil, options, @user, @pass, nil, nil, @debug, signature, @region)
+          end
         end
       end
 
       def check_bucket_exists(bucket, options={})
         url, bkt = get_bucket_url(bucket)
-        return EC2::Common::HTTP::head(url, bkt, options, @user, @pass, @debug)
+        http_fallback(url, @sigv) do |url, signature|
+          EC2::Common::HTTP::head(url, bkt, options, @user, @pass, @debug, signature, @region)
+        end
       end
 
       def get_bucket_location(bucket, options={})
         url, bkt = get_bucket_url(bucket)
         url << "?location"
-        return EC2::Common::HTTP::get(url, bkt, nil, options, @user, @pass, nil, nil, @debug)
+        http_fallback(url, @sigv) do |url, signature|
+          EC2::Common::HTTP::get(url, bkt, nil, options, @user, @pass, nil, nil, @debug, signature, @region)
+        end
       end
 
       def create_bucket(bucket, location, options={})
         url, bkt = get_bucket_url(bucket)
-        begin
-          buffer = Tempfile.new('ec2-create-bucket')      
-          if (location != nil)
-            buffer.write("<CreateBucketConstraint><LocationConstraint>#{location}</LocationConstraint></CreateBucketConstraint>")
-          end
-          buffer.close
-          return EC2::Common::HTTP::putdir(url, bkt, buffer.path, options, @user, @pass, @debug)
-        ensure
-          buffer.unlink
+        binary_data = ""
+        if (location != nil)
+          binary_data = "<CreateBucketConstraint><LocationConstraint>#{location}</LocationConstraint></CreateBucketConstraint>"
+        end
+        http_fallback(url, @sigv) do |url, signature|
+          EC2::Common::HTTP::putdir(url, bkt, binary_data, options, @user, @pass, @debug, signature, @region)
         end
       end
 
@@ -131,34 +142,82 @@ module EC2
         params << "prefix=#{CGI::escape(prefix)}" if prefix
         params << "max-keys=#{CGI::escape(max_keys)}" if max_keys
         url << "?" + params.join("&") unless params.empty?
-        return EC2::Common::HTTP::get(url, bkt, path, options, @user, @pass, nil, nil, @debug)
+        http_fallback(url, @sigv) do |url, signature|
+          EC2::Common::HTTP::get(url, bkt, path, options, @user, @pass, nil, nil, @debug, signature, @region)
+        end
       end
 
       def get(bucket, key, path=nil, options={})
         url, bkt = get_bucket_url(bucket)
-        url << CGI::escape(key)
-        return EC2::Common::HTTP::get(url, bkt, path, options, @user, @pass, nil, nil, @debug)
+        url << "/#{CGI::escape(key)}"
+        http_fallback(url, @sigv) do |url, signature|
+          EC2::Common::HTTP::get(url, bkt, path, options, @user, @pass, nil, nil, @debug, signature, @region)
+        end
       end
 
       def put(bucket, key, file, options={})
         url, bkt = get_bucket_url(bucket)
-        url << CGI::escape(key)
-        return EC2::Common::HTTP::put(url, bkt, file, options, @user, @pass, @debug)
+        url << "/#{CGI::escape(key)}"
+        http_fallback(url, @sigv) do |url, signature|
+          EC2::Common::HTTP::put(url, bkt, file, options, @user, @pass, @debug, signature, @region)
+        end
       end
 
       def copy(bucket, key, source, options={})
         url, bkt = get_bucket_url(bucket)
-        url << CGI::escape(key)
+        url << "/#{CGI::escape(key)}"
         options['x-amz-copy-source'] = CGI::escape(source)
-        return EC2::Common::HTTP::put(url, bkt, nil, options, @user, @pass, @debug)
+        http_fallback(url, @sigv) do |url, signature|
+          EC2::Common::HTTP::put(url, bkt, nil, options, @user, @pass, @debug, signature, @region)
+        end
       end
 
       def delete(bucket, key="", options={})
         url, bkt = get_bucket_url(bucket)
-        url << CGI::escape(key)
-        return EC2::Common::HTTP::delete(url, bkt, options, @user, @pass, @debug)
+        url << "/#{CGI::escape(key)}"
+        http_fallback(url, @sigv) do |url, signature|
+          EC2::Common::HTTP::delete(url, bkt, options, @user, @pass, @debug, signature, @region)
+        end
       end
 
+      private
+      # This method will cycle through all possible signatures versions, starting
+      # with the given the one as first choice
+      def http_fallback url, sigv, &block
+        all_sigv = [EC2::Common::SIGV2, EC2::Common::SIGV4]
+        all_sigv.delete(sigv)
+        ordered_sigv = [sigv].concat all_sigv
+       
+        resp = nil
+        access_denied = false
+        ordered_sigv.each do |o_sigv|
+          redirected = true
+          while redirected
+            redirected = false
+            begin
+              resp = block.call(url, o_sigv)
+            rescue EC2::Common::HTTP::Error::Redirect => e
+              redirected = true
+              url = e.endpoint
+              STDERR.puts "Redirecting to #{url}, resigning request"
+            rescue EC2::Common::HTTP::Error => e
+              if e.code == 403
+                access_denied = true 
+              else
+                raise e
+              end
+            end
+          end
+          # If the response was 403, try other sigv
+          if access_denied == true
+            access_denied = false
+            STDERR.puts "Signature version #{o_sigv} authentication failed, trying different signature version"
+          else
+            break
+          end
+        end
+        resp
+      end
     end
   end
 end

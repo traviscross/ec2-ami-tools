@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -171,7 +171,6 @@ module FileUtil
     fail = 0
     tmpname = nil
     begin
-      Thread.critical = true
       begin
         tmpname = File.join(tmpdir, sprintf('%s%d.%s', basename, $$, Time.now.to_f.to_s))
       end until !File.exist? tmpname
@@ -179,8 +178,6 @@ module FileUtil
       fail += 1
       retry if fail < tries
       raise "failed to generate a temporary directory name '%s'" % tmpname
-    ensure
-      Thread.critical = false
     end
     tmpname
   end

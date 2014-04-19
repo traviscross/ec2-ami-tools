@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -109,20 +109,20 @@ class BundleDeleter < AMITool
 
   #------------------------------------------------------------------------------#
   
-  def make_s3_connection(s3_url, user, pass, method)
-    EC2::Common::S3Support.new(s3_url, user, pass, method, @debug)
+  def make_s3_connection(s3_url, user, pass, method, sigv, region)
+    EC2::Common::S3Support.new(s3_url, user, pass, method, @debug, sigv, region)
   end
 
   #------------------------------------------------------------------------------#
   
-  def delete_bundle(url, bucket, keyprefix, user, pass, manifest, prefix, yes, clear, retry_stuff)
+  def delete_bundle(url, bucket, keyprefix, user, pass, manifest, prefix, yes, clear, retry_stuff, sigv, region)
     begin
       # Get the S3 URL.
       s3_uri = URI.parse(url)
       s3_url = uri2string(s3_uri)
       retry_delete = retry_stuff
       v2_bucket = EC2::Common::S3Support::bucket_name_s3_v2_safe?(bucket)
-      @s3_conn = make_s3_connection(s3_url, user, pass, (v2_bucket ? nil : :path))
+      @s3_conn = make_s3_connection(s3_url, user, pass, (v2_bucket ? nil : :path), sigv, region)
       
       files_to_delete = []
       
@@ -198,7 +198,9 @@ class BundleDeleter < AMITool
                   p.prefix,
                   p.yes,
                   p.clear,
-                  p.retry)
+                  p.retry,
+                  p.sigv,
+                  p.region)
   end
 
 end

@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -44,7 +44,7 @@ module EC2
             if files.is_a? Array
               files.each {|file| exclude file }
             else
-              @options << "--exclude #{files}" unless files.nil?
+              @options << "--exclude '#{files}'" unless files.nil?
             end
             self
           end
@@ -53,7 +53,7 @@ module EC2
             if files.is_a? Array
               files.each {|file| include file }
             else
-              @options << "--include #{files}" unless files.nil?
+              @options << "--include '#{files}'" unless files.nil?
             end
             self
           end

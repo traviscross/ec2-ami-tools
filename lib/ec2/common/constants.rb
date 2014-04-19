@@ -8,27 +8,9 @@
 # the License for the specific language governing permissions and
 # limitations under the License.
 
-module ParameterExceptions
-  class Error < RuntimeError
-  end
-
-  class MissingMandatory < Error
-    def initialize(name)
-      super("missing mandatory parameter: #{name}")
-    end
-  end
-
-  class InvalidCombination < Error
-    def initialize(name1, name2)
-      super("#{name1} and #{name2} may not both be provided")
-    end
-  end
-
-  class InvalidValue < Error
-    def initialize(name, value, msg=nil)
-      message = "#{name} has invalid value '#{value.to_s}'"
-      message += ": #{msg}" unless msg.nil?
-      super(message)
-    end
+module EC2
+  module Common
+    SIGV2 = '2'
+    SIGV4 = '4'
   end
 end

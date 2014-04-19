@@ -1,4 +1,4 @@
-# Copyright 2008-2009 Amazon.com, Inc. or its affiliates.  All Rights
+# Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights
 # Reserved.  Licensed under the Amazon Software License (the
 # "License").  You may not use this file except in compliance with the
 # License. A copy of the License is located at
@@ -11,11 +11,27 @@
 #------------------------------------------------------------------------------
 module EC2
   module Platform
+    class PartitionType < String
+      MBR  = new 'mbr'
+      GPT  = new 'gpt'
+      NONE = new 'none'
+
+      def self.list()
+        [MBR, GPT, NONE]
+      end
+
+      def self.valid?(input)
+        return false if input == NONE
+        self.list.include?(input)
+      end
+    end
+
     module Base
       module Distribution
         UNKNOWN   = 'Unknown'
         GENERIC   = 'Generic'
       end
+
       class System
         MOUNT_POINT = '/mnt/img-mnt'
         def self.distribution
