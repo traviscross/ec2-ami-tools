@@ -1,3 +1,9 @@
+ec2-ami-tools (1.5.2-1) unstable; urgency=low
+
+  * Update to latest upstream.
+
+ -- Travis Cross <tc@traviscross.com>  Sat, 19 Apr 2014 05:51:23 +0000
+
 ec2-ami-tools (1.4.0.9-1) unstable; urgency=low
 
   * Initial release.
