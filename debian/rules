@@ -24,8 +24,11 @@ build-arch:
 build-indep:
 	mkdir -p out
 	cp -a bin etc lib out/
-	for x in out/bin/*; do \
-	  sed -i -e "s|^\(home=\).*|\1/usr|" $$x; done
+	sed -i -e "s|#{EC2_HOME}/etc|/etc|" \
+	  out/lib/ec2/amitools/defaults.rb
+	sed -i \
+	  -e "s|File.join(EC2_HOME.to_s, \('/etc.*\))|\1|" \
+	  out/lib/ec2/platform/base/constants.rb
 	rm -f out/lib/ec2/oem/LICENSE.txt
 	touch build-indep
 
