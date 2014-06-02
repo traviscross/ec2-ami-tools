@@ -35,7 +35,8 @@ class S3ToolParameters < ParametersBase
     'ap-southeast-2' => 'https://s3-ap-southeast-2.amazonaws.com',
     'ap-northeast-1' => 'https://s3-ap-northeast-1.amazonaws.com',
     'sa-east-1' => 'https://s3-sa-east-1.amazonaws.com',
-    'cn-north-1' => 'https://s3.cn-north-1.amazonaws.com.cn'
+    'cn-north-1' => 'https://s3.cn-north-1.amazonaws.com.cn',
+    'us-gov-west-1' => 'https://s3-us-gov-west-1.amazonaws.com'
   }
 
   VALID_SIGV = ['2', '4']

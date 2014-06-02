@@ -153,12 +153,11 @@ class BundleUploader < AMITool
         return true
       end
       $stdout.puts "Creating bucket..."
-      options = {'Content-Length' => '0'}
       
       retry_s3(retry_create) do
         error = "Could not create or access bucket #{bucket}"
         begin
-          rsp = s3_conn.create_bucket(bucket, location == :unconstrained ? nil : location, options)
+          rsp = s3_conn.create_bucket(bucket, location == :unconstrained ? nil : location)
         rescue EC2::Common::HTTP::Error::Retrieve => e
           error += ": server response #{e.message} #{e.code}" 
           raise TryFailed.new(e.message)
