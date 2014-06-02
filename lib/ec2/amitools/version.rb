@@ -15,7 +15,7 @@ module EC2Version
   MANIFEST_VERSION = MANIFEST_CLASS.version
   PKG_NAME = 'ec2-ami-tools'
   PKG_VERSION = '1.5'
-  PKG_RELEASE = '2'
+  PKG_RELEASE = '3'
 
   COPYRIGHT_NOTICE = <<CNOTICE
 Copyright 2008-2014 Amazon.com, Inc. or its affiliates.  All Rights Reserved.

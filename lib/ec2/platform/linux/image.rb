@@ -184,11 +184,16 @@ module EC2
         #---------------------------------------------------------------------#
         # Ensure we have the specified commonly-needed utils in the PATH.
         def verify_runtime(utils, chroot = nil)
+          unless ENV['PATH']
+            raise FatalError.new('PATH not set, cannot find needed utilities')
+          end
+
+          paths = ENV['PATH'].split(File::PATH_SEPARATOR)
+          paths.map! { |path| File.join(chroot, path) } if chroot
+
           utils.each do |util|
-            begin
-              execute('which %s' % [util], chroot, false)
-            rescue FatalError
-              raise FatalError.new('Required utility %s not found in PATH - is it installed?' % [util])
+            unless paths.any? { |dir| File.executable?(File.join(dir, util)) }
+              raise FatalError.new("Required utility '%s' not found in PATH - is it installed?" % util)
             end
           end
         end
@@ -523,7 +528,7 @@ module EC2
             # the grub stages. It's also possible that it will exist outside
             # /usr, but unlikely enough to not merit another glob there.
             stage1 = Dir.glob("#{IMG_MNT}/usr/**/grub*/**/stage1")
-            unless stage1
+            if stage1.empty?
               raise RuntimeError, "Couldn't find grub stages under #{IMG_MNT}"
             end
             stagesdir = File.dirname(stage1[0])

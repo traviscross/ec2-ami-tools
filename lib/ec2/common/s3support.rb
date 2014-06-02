@@ -73,7 +73,7 @@ module EC2
         @user = user
         @pass = pass
         @s3_url = fix_s3_url(s3_url)
-        @format = format || :subdomain
+        @format = format
         @debug = debug
         @sigv = sigv
         @region = region
@@ -91,6 +91,14 @@ module EC2
 
       def get_bucket_url(bucket)
         # The returned variable should not end with '/', makes constructing the path for sigv4 easier
+        if not @format
+          if bucket.include? "."
+            @format = :path
+          else
+            @format = :subdomain
+          end
+        end
+
         case @format
         when :subdomain
           uri = URI.parse(@s3_url)
